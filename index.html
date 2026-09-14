@@ -1,1 +1,226 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+  <title>Habitaciones · Balcón al Mar</title>
+
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body>
+
+  <header class="app-header">
+    <div class="header-content">
+      <div>
+        <h1>Habitaciones</h1>
+        <p>Balcón al Mar</p>
+      </div>
+
+      <div class="header-actions">
+        <button id="refreshBtn" class="btn btn-secondary">
+          Actualizar
+        </button>
+
+        <button id="printBtn" class="btn btn-secondary">
+          Imprimir
+        </button>
+      </div>
+    </div>
+  </header>
+
+
+  <main class="app-container">
+
+    <!-- Modo de trabajo -->
+    <section class="mode-selector">
+
+      <button
+        id="cleaningModeBtn"
+        class="mode-btn active"
+        type="button">
+        Limpieza
+      </button>
+
+      <button
+        id="receptionModeBtn"
+        class="mode-btn"
+        type="button">
+        Recepción
+      </button>
+
+    </section>
+
+
+    <!-- Usuario -->
+    <section class="user-section">
+
+      <label for="userName">
+        Quién
+      </label>
+
+      <input
+        id="userName"
+        type="text"
+        placeholder="Escribe tu nombre"
+        autocomplete="name">
+
+    </section>
+
+
+    <!-- Estadísticas -->
+    <section class="stats">
+
+      <div class="stat-card">
+        <span class="stat-number" id="dirtyCount">0</span>
+        <span class="stat-label">Sucias</span>
+      </div>
+
+      <div class="stat-card">
+        <span class="stat-number" id="readyCount">0</span>
+        <span class="stat-label">Para revisar</span>
+      </div>
+
+      <div class="stat-card">
+        <span class="stat-number" id="reviewedCount">0</span>
+        <span class="stat-label">Revisadas</span>
+      </div>
+
+    </section>
+
+
+    <!-- Habitaciones -->
+    <section>
+
+      <div class="section-heading">
+        <h2>Habitaciones</h2>
+        <span id="lastUpdate"></span>
+      </div>
+
+      <div id="roomsContainer" class="rooms-grid">
+        <!-- Las habitaciones se generan desde JavaScript -->
+      </div>
+
+    </section>
+
+
+    <!-- Actividad -->
+    <section class="activity-section">
+
+      <div class="section-heading">
+        <h2>Actividad reciente</h2>
+      </div>
+
+      <div id="activityContainer" class="activity-list">
+        <!-- Actividad generada desde JavaScript -->
+      </div>
+
+    </section>
+
+  </main>
+
+
+  <!-- Plantilla de habitación -->
+  <template id="roomTemplate">
+
+    <article class="room-card">
+
+      <div class="room-header">
+
+        <div>
+          <span class="room-label">Habitación</span>
+          <h3 class="room-number"></h3>
+        </div>
+
+        <span class="room-status"></span>
+
+      </div>
+
+
+      <div class="room-info">
+
+        <div class="room-user">
+          <span class="info-label">Última acción</span>
+          <span class="last-user">—</span>
+        </div>
+
+      </div>
+
+
+      <!-- Acciones -->
+      <div class="room-actions">
+
+        <button
+          class="btn btn-clean"
+          data-action="clean">
+          Marcar limpia
+        </button>
+
+        <button
+          class="btn btn-review"
+          data-action="review">
+          Revisar
+        </button>
+
+        <button
+          class="btn btn-reset"
+          data-action="reset">
+          Marcar sucia
+        </button>
+
+      </div>
+
+
+      <!-- Checklist -->
+      <div class="checklist" hidden>
+
+        <div class="checklist-header">
+          <h4>Checklist</h4>
+        </div>
+
+        <div class="checklist-items">
+          <!-- Se genera desde JavaScript -->
+        </div>
+
+        <div class="review-notes">
+
+          <label for="">
+            Observaciones
+          </label>
+
+          <textarea
+            class="notes"
+            rows="3"
+            placeholder="Añadir observaciones..."></textarea>
+
+        </div>
+
+        <div class="checklist-actions">
+
+          <button
+            class="btn btn-cancel"
+            data-action="cancel-review">
+            Cancelar
+          </button>
+
+          <button
+            class="btn btn-confirm"
+            data-action="confirm-review">
+            Confirmar revisión
+          </button>
+
+        </div>
+
+      </div>
+
+    </article>
+
+  </template>
+
+
+  <!-- JavaScript -->
+  <script src="js/app.js"></script>
+
+</body>
+</html>
