@@ -362,28 +362,22 @@ function renderRooms() {
   const template =
     document.getElementById("roomTemplate");
 
-
   if (!container || !template) {
     return;
   }
 
-
   container.innerHTML = "";
-
 
   CONFIG.rooms.forEach(room => {
 
     const data =
       roomsState[room] || {
-
         room: room,
         status: "sucia",
         cleanedBy: "",
         reviewedBy: "",
         updatedAt: null
-
       };
-
 
     const fragment =
       template.content.cloneNode(true);
@@ -391,13 +385,19 @@ function renderRooms() {
     const card =
       fragment.querySelector(".room-card");
 
+    if (!card) {
+      return;
+    }
 
     card.dataset.room = room;
-
     card.classList.add(
       `status-${data.status}`
     );
 
+
+    /* ---------------------------------
+       DATOS BÁSICOS
+       --------------------------------- */
 
     const roomNumber =
       fragment.querySelector(".room-number");
@@ -405,18 +405,126 @@ function renderRooms() {
     const status =
       fragment.querySelector(".room-status");
 
+    const hint =
+      fragment.querySelector(".room-hint");
+
+    if (roomNumber) {
+      roomNumber.textContent = room;
+    }
+
+    if (status) {
+      status.textContent =
+        getStatusLabel(data.status);
+    }
+
+
+    /* ---------------------------------
+       MENSAJE SEGÚN ESTADO
+       --------------------------------- */
+
+    if (hint) {
+
+      if (data.status === "sucia") {
+
+        hint.textContent =
+          "Pendiente de limpieza.";
+
+      } else if (data.status === "lista") {
+
+        hint.textContent =
+          "Lista para revisión de Recepción.";
+
+      } else if (data.status === "revisada") {
+
+        hint.textContent =
+          "Revisada — lista para el próximo huésped.";
+
+      } else {
+
+        hint.textContent = "";
+
+      }
+    }
+
+
+    /* ---------------------------------
+       USUARIO QUE LIMPIÓ
+       --------------------------------- */
+
+    const cleanLine =
+      fragment.querySelector(
+        ".who-clean-line"
+      );
+
+    if (cleanLine) {
+
+      if (data.cleanedBy) {
+
+        cleanLine.hidden = false;
+
+        const name =
+          cleanLine.querySelector(".who-name");
+
+        if (name) {
+          name.textContent =
+            data.cleanedBy;
+        }
+
+      } else {
+
+        cleanLine.hidden = true;
+
+      }
+    }
+
+
+    /* ---------------------------------
+       USUARIO QUE REVISÓ
+       --------------------------------- */
+
+    const reviewLine =
+      fragment.querySelector(
+        ".who-review-line"
+      );
+
+    if (reviewLine) {
+
+      if (data.reviewedBy) {
+
+        reviewLine.hidden = false;
+
+        const name =
+          reviewLine.querySelector(".who-name");
+
+        if (name) {
+          name.textContent =
+            data.reviewedBy;
+        }
+
+      } else {
+
+        reviewLine.hidden = true;
+
+      }
+    }
+
+
+    /* ---------------------------------
+       ÚLTIMO USUARIO
+       --------------------------------- */
+
     const lastUser =
       fragment.querySelector(".last-user");
 
+    if (lastUser) {
+      lastUser.textContent =
+        getLastUser(data);
+    }
 
-    roomNumber.textContent = room;
 
-    status.textContent =
-      getStatusLabel(data.status);
-
-    lastUser.textContent =
-      getLastUser(data);
-
+    /* ---------------------------------
+       BOTONES
+       --------------------------------- */
 
     const cleanBtn =
       fragment.querySelector(
@@ -464,6 +572,10 @@ function renderRooms() {
     }
 
 
+    /* ---------------------------------
+       CHECKLIST
+       --------------------------------- */
+
     const cancelBtn =
       fragment.querySelector(
         '[data-action="cancel-review"]'
@@ -495,6 +607,71 @@ function renderRooms() {
     }
 
 
+    /*
+     * En Recepción, las habitaciones listas
+     * muestran directamente el checklist.
+     */
+    if (
+      currentMode === "reception" &&
+      data.status === "lista"
+    ) {
+
+      openChecklist(card, room);
+
+    }
+
+
+    /* ---------------------------------
+       HISTORIAL
+       --------------------------------- */
+
+    const historyList =
+      fragment.querySelector(
+        ".history-list"
+      );
+
+    const historyCount =
+      fragment.querySelector(
+        ".history-count"
+      );
+
+    const roomHistory =
+      data.history || [];
+
+
+    if (historyCount) {
+
+      historyCount.textContent =
+        roomHistory.length;
+
+    }
+
+
+    if (historyList) {
+
+      historyList.innerHTML = "";
+
+      roomHistory.forEach(item => {
+
+        const li =
+          document.createElement("li");
+
+        li.textContent =
+          typeof item === "string"
+            ? item
+            : JSON.stringify(item);
+
+        historyList.appendChild(li);
+
+      });
+
+    }
+
+
+    /* ---------------------------------
+       MOSTRAR BOTONES CORRESPONDIENTES
+       --------------------------------- */
+
     updateActionButtons(
       fragment,
       data.status
@@ -509,7 +686,6 @@ function renderRooms() {
   updateStatistics();
 
 }
-
 
 /* ---------------------------------------------------------
    ETIQUETAS DE ESTADO
