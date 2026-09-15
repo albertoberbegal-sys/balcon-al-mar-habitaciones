@@ -31,6 +31,7 @@ const CONFIG = {
 
   // Intervalo de actualización automática
   pollingInterval: 20000,
+   apiUrl: "https://script.google.com/macros/s/AKfycbykFtsTAWfQamKQccOFL3ZYqC5MZr1E4eMg0GGz7qnqEAoTBTZqtPMV8Ig5UfQ95ec/exec",
 
   // Clave utilizada para guardar el nombre
   storageUserKey: "balconAlMar_user"
