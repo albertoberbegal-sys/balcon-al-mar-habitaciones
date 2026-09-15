@@ -795,3 +795,181 @@ body {
   }
 
 }
+/* =========================================================
+   PANEL DE ACTIVIDAD — estilo Claude
+   ========================================================= */
+
+.activity-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.85rem 1rem;
+  margin-bottom: 1.5rem;
+  box-shadow: var(--shadow);
+}
+
+.activity-section .section-heading {
+  margin: 0;
+}
+
+.activity-section .section-heading h2 {
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.activity-list {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.activity-list:empty::after {
+  content: "Sin actividad reciente todavía.";
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.activity-item {
+  font-size: 0.85rem;
+  color: var(--muted);
+  border-left: 2px solid var(--border);
+  padding-left: 0.6rem;
+}
+
+
+/* =========================================================
+   FILA DE CONTROLES — estilo Claude
+   ========================================================= */
+
+.control-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: nowrap;
+}
+
+
+/* Limpieza / Recepción */
+
+.mode-switch {
+  display: inline-flex;
+  flex-shrink: 0;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.mode-btn {
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  border-radius: 999px;
+  padding: 0.45rem 1rem;
+  cursor: pointer;
+}
+
+.mode-btn.active,
+.mode-btn[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+
+/* Quién */
+
+.who-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.who-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.who-input {
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.4rem 0.65rem;
+  width: 11rem;
+}
+
+
+/* Estadísticas */
+
+.stat-strip {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: nowrap;
+}
+
+.stat-pill {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.4rem 0.85rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.stat-pill strong {
+  font-size: 1rem;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-pill.stat-dirty strong {
+  color: var(--dirty);
+}
+
+.stat-pill.stat-ready strong {
+  color: var(--ready);
+}
+
+.stat-pill.stat-done strong {
+  color: var(--done);
+}
+
+
+/* Botones de actualizar / imprimir */
+
+.refresh-btn,
+.print-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+
+/* En pantallas más pequeñas permitimos que la fila baje */
+
+@media (max-width: 1100px) {
+  .control-row {
+    flex-wrap: wrap;
+  }
+}
