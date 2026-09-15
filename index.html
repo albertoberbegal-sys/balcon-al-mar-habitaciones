@@ -124,100 +124,136 @@
   <!-- Plantilla de habitación -->
   <template id="roomTemplate">
 
-    <article class="room-card">
+  <article class="room-card">
 
-      <div class="room-header">
+    <header class="room-card-header">
 
-        <div>
-          <span class="room-label">Habitación</span>
-          <h3 class="room-number"></h3>
-        </div>
+      <div>
+        <span class="room-label">Habitación</span>
+        <span class="room-number"></span>
+      </div>
 
-        <span class="room-status"></span>
+      <span class="status-badge room-status"></span>
 
+    </header>
+
+
+    <p class="hint room-hint"></p>
+
+
+    <p class="who-line who-clean-line" hidden>
+      Limpiada por:
+      <strong class="who-name"></strong>
+    </p>
+
+
+    <p class="who-line who-review-line" hidden>
+      Revisada por:
+      <strong class="who-name"></strong>
+    </p>
+
+
+    <p class="card-error" hidden></p>
+
+
+    <!-- Acción de limpieza -->
+    <div class="action-clean">
+
+      <button
+        type="button"
+        class="btn btn-accent btn-clean"
+        data-action="clean">
+        Marcar habitación limpia
+      </button>
+
+    </div>
+
+
+    <!-- Checklist de recepción -->
+    <div
+      class="action-checklist checklist"
+      hidden>
+
+      <div class="checklist-header">
+        <h4>Revisión de habitación</h4>
       </div>
 
 
-      <div class="room-info">
-
-        <div class="room-user">
-          <span class="info-label">Última acción</span>
-          <span class="last-user">—</span>
-        </div>
-
+      <div class="checklist-items">
+        <!-- Los elementos se generan desde app.js -->
       </div>
 
 
-      <!-- Acciones -->
-      <div class="room-actions">
+      <label class="notes-label">
 
-        <button
-          class="btn btn-clean"
-          data-action="clean">
-          Marcar limpia
-        </button>
+        Incidencias u observaciones (opcional)
 
-        <button
-          class="btn btn-review"
-          data-action="review">
-          Revisar
-        </button>
+        <textarea
+          class="notes notes-input"
+          rows="2"
+          placeholder="Ej.: falta secador, mancha en la moqueta…"></textarea>
 
-        <button
-          class="btn btn-reset"
-          data-action="reset">
-          Marcar sucia
-        </button>
-
-      </div>
+      </label>
 
 
-      <!-- Checklist -->
-      <div class="checklist" hidden>
+      <button
+        type="button"
+        class="btn btn-accent btn-complete"
+        data-action="confirm-review">
+        Completar revisión
+      </button>
 
-        <div class="checklist-header">
-          <h4>Checklist</h4>
-        </div>
+    </div>
 
-        <div class="checklist-items">
-          <!-- Se genera desde JavaScript -->
-        </div>
 
-        <div class="review-notes">
+    <!-- Marcar habitación como sucia -->
+    <div class="action-reset">
 
-          <label for="">
-            Observaciones
-          </label>
+      <button
+        type="button"
+        class="btn btn-ghost btn-reset"
+        data-action="reset">
+        Registrar salida (marcar sucia)
+      </button>
 
-          <textarea
-            class="notes"
-            rows="3"
-            placeholder="Añadir observaciones..."></textarea>
+    </div>
 
-        </div>
 
-        <div class="checklist-actions">
+    <!-- Historial -->
+    <details class="history">
 
-          <button
-            class="btn btn-cancel"
-            data-action="cancel-review">
-            Cancelar
-          </button>
+      <summary>
+        Historial
+        (<span class="history-count">0</span>)
+      </summary>
 
-          <button
-            class="btn btn-confirm"
-            data-action="confirm-review">
-            Confirmar revisión
-          </button>
+      <ul class="history-list"></ul>
 
-        </div>
+    </details>
 
-      </div>
 
-    </article>
+    <!-- Compatibilidad con el código actual -->
+    <span class="last-user" hidden></span>
 
-  </template>
+    <button
+      type="button"
+      class="btn btn-cancel"
+      data-action="cancel-review"
+      hidden>
+      Cancelar
+    </button>
 
+    <button
+      type="button"
+      class="btn btn-review"
+      data-action="review"
+      hidden>
+      Revisar
+    </button>
+
+  </article>
+
+</template>
 
   <!-- JavaScript -->
   <script src="js/app.js"></script>
