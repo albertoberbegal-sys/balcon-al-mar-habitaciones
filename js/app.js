@@ -1320,58 +1320,40 @@ document.addEventListener(
 
 function loadState(showMessage = false) {
 
-  /*
-   * Mientras no esté conectado Apps Script,
-   * utilizamos el estado local.
-   */
+  fetch(CONFIG.apiUrl)
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(
+          `Error HTTP ${response.status}`
+        );
+      }
 
-  if (
-    typeof google === "undefined" ||
-    !google.script ||
-    !google.script.run
-  ) {
+      return response.json();
+    })
 
-    updateLastUpdate();
-
-    return;
-
-  }
-
-
-  google.script.run
-
-    .withSuccessHandler(response => {
+    .then(response => {
 
       if (!response) {
         return;
       }
 
-
       if (response.rooms) {
-
         roomsState =
           normalizeRooms(response.rooms);
-
       }
-
 
       if (response.activity) {
-
         activityState =
           response.activity;
-
       }
 
-
       renderRooms();
-
       renderActivity();
-
       updateLastUpdate();
 
     })
 
-    .withFailureHandler(error => {
+    .catch(error => {
 
       console.error(
         "Error cargando estado:",
@@ -1379,19 +1361,14 @@ function loadState(showMessage = false) {
       );
 
       if (showMessage) {
-
         alert(
           "No se ha podido actualizar la información."
         );
-
       }
 
-    })
-
-    .getState();
+    });
 
 }
-
 
 /* ---------------------------------------------------------
    NORMALIZAR HABITACIONES
