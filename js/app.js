@@ -245,7 +245,6 @@ function initializeEvents() {
    --------------------------------------------------------- */
 
 function setMode(mode) {
-
   currentMode = mode;
 
   const cleaningBtn =
@@ -254,30 +253,64 @@ function setMode(mode) {
   const receptionBtn =
     document.getElementById("receptionModeBtn");
 
+  const app =
+    document.getElementById("app");
 
+  // Cambiar estado visual del botón
   if (cleaningBtn) {
-
     cleaningBtn.classList.toggle(
       "active",
       mode === "cleaning"
     );
 
+    cleaningBtn.setAttribute(
+      "aria-pressed",
+      String(mode === "cleaning")
+    );
   }
 
-
   if (receptionBtn) {
-
     receptionBtn.classList.toggle(
       "active",
       mode === "reception"
     );
 
+    receptionBtn.setAttribute(
+      "aria-pressed",
+      String(mode === "reception")
+    );
+  }
+
+  // Informar al CSS de qué modo estamos usando
+  if (app) {
+    const localMode =
+      mode === "cleaning"
+        ? "limpieza"
+        : "recepcion";
+
+    app.setAttribute(
+      "data-local-mode",
+      localMode
+    );
+  }
+
+  // Recordar el modo elegido
+  try {
+    localStorage.setItem(
+      "balconmar-modo",
+      mode === "cleaning"
+        ? "limpieza"
+        : "recepcion"
+    );
+  } catch (error) {
+    console.warn(
+      "No se ha podido guardar el modo:",
+      error
+    );
   }
 
   renderRooms();
-
 }
-
 
 /* ---------------------------------------------------------
    CREACIÓN INICIAL DE HABITACIONES
