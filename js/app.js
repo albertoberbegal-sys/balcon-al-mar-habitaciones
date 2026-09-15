@@ -1439,74 +1439,106 @@ function normalizeRooms(rooms) {
 
 function saveStateToBackend(action, data) {
 
-  /*
-   * Esta función está preparada para Google Apps Script.
-   *
-   * Todavía no hacemos nada si la aplicación
-   * se está ejecutando directamente desde GitHub.
-   */
+  if (!CONFIG.apiUrl) {
 
-  if (
-    typeof google === "undefined" ||
-    !google.script ||
-    !google.script.run
-  ) {
+    console.error(
+      "No se ha configurado la URL de la API."
+    );
 
-    console.log(
-      "Modo local:",
-      action,
-      data
+    handleBackendError(
+      new Error("API URL no configurada.")
     );
 
     return;
-
   }
 
+  let url =
+    CONFIG.apiUrl +
+    "?action=" +
+    encodeURIComponent(action);
 
-  try {
+  Object.keys(data || {}).forEach(key => {
 
-    if (action === "markClean") {
+    const value = data[key];
 
-      google.script.run
-        .withFailureHandler(handleBackendError)
-        .markClean(
-          data.room,
-          data.who
-        );
+    if (value === undefined || value === null) {
+      return;
+    }
+
+    let encodedValue;
+
+    if (Array.isArray(value)) {
+
+      encodedValue =
+        JSON.stringify(value);
+
+    } else {
+
+      encodedValue =
+        String(value);
 
     }
 
+    url +=
+      "&" +
+      encodeURIComponent(key) +
+      "=" +
+      encodeURIComponent(encodedValue);
 
-    if (action === "completeReview") {
+  });
 
-      google.script.run
-        .withFailureHandler(handleBackendError)
-        .completeReview(
-          data.room,
-          data.who,
-          data.missingLabels,
-          data.notes
+
+  fetch(url, {
+    method: "GET",
+    cache: "no-store"
+  })
+
+    .then(response => {
+
+      if (!response.ok) {
+
+        throw new Error(
+          `Error HTTP ${response.status}`
         );
 
-    }
+      }
 
+      return response.json();
 
-    if (action === "resetRoom") {
+    })
 
-      google.script.run
-        .withFailureHandler(handleBackendError)
-        .resetRoom(
-          data.room,
-          data.who
+    .then(response => {
+
+      if (!response || response.ok === false) {
+
+        throw new Error(
+          response?.error ||
+          "El servidor no ha podido guardar el cambio."
         );
 
-    }
+      }
 
-  } catch (error) {
+      console.log(
+        "Cambio guardado correctamente:",
+        action,
+        response
+      );
 
-    handleBackendError(error);
+      /*
+       * Volvemos a cargar el estado real del servidor.
+       * Así confirmamos que Google Sheets ha recibido
+       * correctamente el cambio.
+       */
 
-  }
+      loadState();
+
+    })
+
+    .catch(error => {
+
+      handleBackendError(error);
+
+    });
 
 }
 
@@ -1529,8 +1561,8 @@ function handleBackendError(error) {
 
 
   /*
-   * Volvemos a consultar el servidor para intentar
-   * recuperar el estado real.
+   * Si el servidor no acepta el cambio,
+   * recuperamos el estado real.
    */
 
   loadState();
