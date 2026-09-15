@@ -581,26 +581,41 @@ function updateActionButtons(fragment, status) {
     );
 
 
-  if (cleanBtn) {
+  // MODO LIMPIEZA
+  if (currentMode === "cleaning") {
 
-    cleanBtn.hidden =
-      status !== "sucia";
+    if (cleanBtn) {
+      cleanBtn.hidden =
+        status !== "sucia";
+    }
+
+    if (reviewBtn) {
+      reviewBtn.hidden = true;
+    }
+
+    if (resetBtn) {
+      resetBtn.hidden = true;
+    }
 
   }
 
 
-  if (reviewBtn) {
+  // MODO RECEPCIÓN
+  else if (currentMode === "reception") {
 
-    reviewBtn.hidden =
-      status !== "lista";
+    if (cleanBtn) {
+      cleanBtn.hidden = true;
+    }
 
-  }
+    if (reviewBtn) {
+      reviewBtn.hidden =
+        status !== "lista";
+    }
 
-
-  if (resetBtn) {
-
-    resetBtn.hidden =
-      status === "sucia";
+    if (resetBtn) {
+      resetBtn.hidden =
+        status !== "revisada";
+    }
 
   }
 
