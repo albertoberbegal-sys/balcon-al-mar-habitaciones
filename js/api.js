@@ -1,3 +1,4 @@
+```js
 /**
  * api.js — Capa de comunicación frontend ⇄ backend (Google Apps Script).
  * =====================================================================
@@ -29,11 +30,8 @@
  * devuelve hoy el servidor de Apps Script.
  */
 
-/* URL de la aplicación web de Apps Script.
-   Se rellenará en el paso 5/7 de la migración (cuando se despliegue),
-   por ejemplo:
-   'https://script.google.com/macros/s/AKfycb.../exec'          */
-var API_BASE = '';
+/* URL de la aplicación web de Apps Script. */
+var API_BASE = 'https://script.google.com/macros/s/AKfycbw3wVF12qi5xnOIXdPWQlJIuchQjjiUE2ra-R_UbRQ0FOmXic4gzRtidbeSeGsnIG8/exec';
 
 /* Tiempo máximo de espera antes de dar por fallida una llamada (ms). */
 var API_TIMEOUT_MS = 30000;
@@ -119,3 +117,4 @@ function completeReview(room, who, missingLabels, notes) {
 function resetRoom(room) {
   return apiRequest_({ action: 'resetRoom', room: room });
 }
+```
