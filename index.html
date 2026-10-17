@@ -1,262 +1,63 @@
-<!DOCTYPE html>
-<html lang="es">
+<!doctype html>
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-  <title>Habitaciones · Balcón al Mar</title>
-
-  <link rel="stylesheet" href="css/styles.css">
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Habitaciones Balcón al Mar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Archivo:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="css/app.css">
 </head>
-
 <body>
-
-  <header class="app-header">
-    <div class="header-content">
-      <div>
-        <h1>Habitaciones</h1>
-        <p>Balcón al Mar</p>
-      </div>
-
-      <div class="header-actions">
-        <button id="refreshBtn" class="btn btn-secondary">
-          Actualizar
-        </button>
-
-        <button id="printBtn" class="btn btn-secondary">
-          Imprimir
-        </button>
-      </div>
+<div id="app" data-local-mode="limpieza">
+  <div class="top-bar">
+    <div class="brand-row">
+      <div><div class="brand">Balcón al Mar</div><div class="brand-sub">Control de habitaciones · Valencia</div></div>
+      <div class="today" id="today-label"></div>
     </div>
-  </header>
-
-
-  <main class="app-container">
-
-    <!-- Modo de trabajo -->
-    <section class="mode-selector">
-
-      <button
-        id="cleaningModeBtn"
-        class="mode-btn active"
-        type="button">
-        Limpieza
-      </button>
-
-      <button
-        id="receptionModeBtn"
-        class="mode-btn"
-        type="button">
-        Recepción
-      </button>
-
-    </section>
-
-
-    <!-- Usuario -->
-    <section class="user-section">
-
-      <label for="userName">
-        Quién
-      </label>
-
-      <input
-        id="userName"
-        type="text"
-        placeholder="Escribe tu nombre"
-        autocomplete="name">
-
-    </section>
-
-
-    <!-- Estadísticas -->
-    <section class="stats">
-
-      <div class="stat-card">
-        <span class="stat-number" id="dirtyCount">0</span>
-        <span class="stat-label">Sucias</span>
+    <div class="control-row">
+      <div class="mode-switch" role="tablist" aria-label="Vista por departamento">
+        <button type="button" class="mode-btn" data-mode="limpieza" aria-pressed="true">Limpieza</button>
+        <button type="button" class="mode-btn" data-mode="recepcion" aria-pressed="false">Recepción</button>
       </div>
-
-      <div class="stat-card">
-        <span class="stat-number" id="readyCount">0</span>
-        <span class="stat-label">Para revisar</span>
+      <div class="who-row">
+        <label class="who-label" for="who-input">Quién:
+          <input type="text" id="who-input" class="who-input" placeholder="Tu nombre" autocomplete="name">
+        </label>
+        <span class="who-error-msg" id="who-error-msg" hidden>Escribe tu nombre antes de continuar.</span>
       </div>
-
-      <div class="stat-card">
-        <span class="stat-number" id="reviewedCount">0</span>
-        <span class="stat-label">Revisadas</span>
+      <div class="stat-strip">
+        <span class="stat-pill stat-dirty">Sucias <strong id="stat-sucia">–</strong></span>
+        <span class="stat-pill stat-ready">Listas para revisar <strong id="stat-lista">–</strong></span>
+        <span class="stat-pill stat-done">Revisadas <strong id="stat-revisada">–</strong></span>
       </div>
-
-    </section>
-
-
-    <!-- Habitaciones -->
-    <section>
-
-      <div class="section-heading">
-        <h2>Habitaciones</h2>
-        <span id="lastUpdate"></span>
-      </div>
-
-      <div id="roomsContainer" class="rooms-grid">
-        <!-- Las habitaciones se generan desde JavaScript -->
-      </div>
-
-    </section>
-
-
-    <!-- Actividad -->
-    <section class="activity-section">
-
-      <div class="section-heading">
-        <h2>Actividad reciente</h2>
-      </div>
-
-      <div id="activityContainer" class="activity-list">
-        <!-- Actividad generada desde JavaScript -->
-      </div>
-
-    </section>
-
-  </main>
-
-
-  <!-- Plantilla de habitación -->
-  <template id="roomTemplate">
-
-  <article class="room-card">
-
-    <header class="room-card-header">
-
-      <div>
-        <span class="room-label">Habitación</span>
-        <span class="room-number"></span>
-      </div>
-
-      <span class="status-badge room-status"></span>
-
-    </header>
-
-
-    <p class="hint room-hint"></p>
-
-
-    <p class="who-line who-clean-line" hidden>
-      Limpiada por:
-      <strong class="who-name"></strong>
-    </p>
-
-
-    <p class="who-line who-review-line" hidden>
-      Revisada por:
-      <strong class="who-name"></strong>
-    </p>
-
-
-    <p class="card-error" hidden></p>
-
-
-    <!-- Acción de limpieza -->
-    <div class="action-clean">
-
-      <button
-        type="button"
-        class="btn btn-accent btn-clean"
-        data-action="clean">
-        Marcar habitación limpia
-      </button>
-
+      <button type="button" class="btn btn-ghost refresh-btn" id="refresh-btn">🔄 Actualizar</button>
+      <button type="button" class="btn btn-ghost print-btn" id="print-btn">🖨️ Imprimir / PDF</button>
     </div>
+  </div>
 
+  <div class="print-header">
+    <div class="print-title">Balcón al Mar — Informe de habitaciones</div>
+    <div class="print-meta">Generado: <span id="print-date"></span></div>
+  </div>
 
-    <!-- Checklist de recepción -->
-    <div
-      class="action-checklist checklist"
-      hidden>
+  <div id="pending-banner" class="banner banner-info" hidden>Guardando cambios…</div>
 
-      <div class="checklist-header">
-        <h4>Revisión de habitación</h4>
-      </div>
+  <details class="activity-panel" open>
+    <summary>Actividad reciente</summary>
+    <ul class="activity-list" id="activity-list"></ul>
+  </details>
 
+  <div class="room-grid" id="room-grid">
+    <p style="color:var(--muted)">Cargando datos del panel…</p>
+  </div>
 
-      <div class="checklist-items">
-        <!-- Los elementos se generan desde app.js -->
-      </div>
+  <footer class="page-footer">Hostal Balcón al Mar · panel interno de Limpieza y Recepción</footer>
+  <p class="save-status" id="save-status">Actualizado: —</p>
+</div>
 
-
-      <label class="notes-label">
-
-        Incidencias u observaciones (opcional)
-
-        <textarea
-          class="notes notes-input"
-          rows="2"
-          placeholder="Ej.: falta secador, mancha en la moqueta…"></textarea>
-
-      </label>
-
-
-      <button
-        type="button"
-        class="btn btn-accent btn-complete"
-        data-action="confirm-review">
-        Completar revisión
-      </button>
-
-    </div>
-
-
-    <!-- Marcar habitación como sucia -->
-    <div class="action-reset">
-
-      <button
-        type="button"
-        class="btn btn-ghost btn-reset"
-        data-action="reset">
-        Registrar salida (marcar sucia)
-      </button>
-
-    </div>
-
-
-    <!-- Historial -->
-    <details class="history">
-
-      <summary>
-        Historial
-        (<span class="history-count">0</span>)
-      </summary>
-
-      <ul class="history-list"></ul>
-
-    </details>
-
-
-    <!-- Compatibilidad con el código actual -->
-    <span class="last-user" hidden></span>
-
-    <button
-      type="button"
-      class="btn btn-cancel"
-      data-action="cancel-review"
-      hidden>
-      Cancelar
-    </button>
-
-    <button
-      type="button"
-      class="btn btn-review"
-      data-action="review"
-      hidden>
-      Revisar
-    </button>
-
-  </article>
-
-</template>
-
-  <!-- JavaScript -->
-  <script src="js/app.js"></script>
-
+<script src="js/app.js"></script>
 </body>
 </html>
