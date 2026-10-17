@@ -1,1794 +1,324 @@
-/* =========================================================
-   BALCÓN AL MAR · HABITACIONES
-   Lógica principal de la aplicación
-   ========================================================= */
 
+(function () {
+try {
+  var ROOMS = ["101","102","103","104","105","106","21","22","23","24","25","26","B7"];
+  var EXTRA_ITEMS = {
+    "22": ["Aguas de cortesía"],
+    "23": ["Aguas de cortesía", "Bolsitas de té y tazas"],
+    "24": ["Aguas de cortesía"],
+    "25": ["Aguas de cortesía", "Bolsitas de té y tazas"]
+  };
+  var CATEGORIES = [
+    ["Amenities de baño", ["Papel higiénico","Toallas","Jabón de manos","Gel de ducha"]],
+    ["Ropa de cama y limpieza", ["Sábanas","Fundas de almohada","Suelo limpio","Papelera vacía","Superficies sin polvo"]],
+    ["Equipamiento", ["Perchas","Secador","Mando de A/C","Bombillas"]],
+    ["Últimos detalles", ["Ambientador / buen olor","Aire acondicionado apagado","TV encendida con bienvenida al cliente"]]
+  ];
+  var STATUS_LABEL = { sucia: 'Sucia', lista: 'Lista para revisar', revisada: 'Revisada' };
+  var HINT_LABEL = {
+    sucia: 'Pendiente de limpieza.',
+    lista: 'Lista para revisión de Recepción.',
+    revisada: 'Revisada — lista para el próximo huésped.'
+  };
 
-/* ---------------------------------------------------------
-   CONFIGURACIÓN
-   --------------------------------------------------------- */
+  var state = { rooms: {}, activity: [] };
+  var dirtyRooms = {};       // habitaciones con edición en curso en ESTE dispositivo
+  var pendingRooms = {};     // habitaciones con una acción en curso (esperando al servidor)
+  var POLL_MS = 20000;
 
-const CONFIG = {
-
-  // Habitaciones activas
-  rooms: [
-    "101",
-    "102",
-    "103",
-    "104",
-    "105",
-    "106",
-
-    "21",
-    "22",
-    "23",
-    "24",
-    "25",
-    "26",
-
-    "B7"
-  ],
-
-  // Intervalo de actualización automática
-  pollingInterval: 20000,
-   apiUrl: "https://script.google.com/macros/s/AKfycbw3wVF12qi5xnOIXdPWQlJIuchQjjiUE2ra-R_UbRQ0FOmXic4gzRtidbeSeGsnIG8/exec",
-
-  // Clave utilizada para guardar el nombre
-  storageUserKey: "balconAlMar_user"
-};
-
-
-/* ---------------------------------------------------------
-   CHECKLIST GENERAL
-   --------------------------------------------------------- */
-
-const CHECKLIST = [
-
-  {
-    category: "Amenities de baño",
-    items: [
-      "Papel higiénico",
-      "Toallas",
-      "Jabón de manos",
-      "Gel de ducha"
-    ]
-  },
-
-  {
-    category: "Ropa de cama y limpieza",
-    items: [
-      "Sábanas",
-      "Fundas de almohada",
-      "Suelo limpio",
-      "Papelera vacía",
-      "Superficies sin polvo"
-    ]
-  },
-
-  {
-    category: "Equipamiento",
-    items: [
-      "Perchas",
-      "Secador",
-      "Mando de A/C",
-      "Bombillas"
-    ]
-  },
-
-  {
-    category: "Últimos detalles",
-    items: [
-      "Ambientador / buen olor",
-      "Aire acondicionado apagado",
-      "TV encendida con bienvenida al cliente"
-    ]
+  function esc(s) {
+    return String(s === null || s === undefined ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
-];
-
-
-/* ---------------------------------------------------------
-   ELEMENTOS ESPECÍFICOS POR HABITACIÓN
-   --------------------------------------------------------- */
-
-const ROOM_EXTRA_ITEMS = {
-
-  "22": [
-    "Aguas de cortesía"
-  ],
-
-  "23": [
-    "Aguas de cortesía",
-    "Bolsitas de té y tazas"
-  ],
-
-  "24": [
-    "Aguas de cortesía"
-  ],
-
-  "25": [
-    "Aguas de cortesía",
-    "Bolsitas de té y tazas"
-  ]
-
-};
-
-
-/* ---------------------------------------------------------
-   ESTADO LOCAL
-   --------------------------------------------------------- */
-
-let currentMode = "cleaning";
-
-let roomsState = {};
-
-let activityState = [];
-
-let refreshTimer = null;
-
-
-/* ---------------------------------------------------------
-   INICIO
-   --------------------------------------------------------- */
-
-document.addEventListener("DOMContentLoaded", () => {
-
-  initializeUser();
-
-  initializeEvents();
-
-  renderInitialRooms();
-
-  loadState();
-
-  startPolling();
-
-});
-
-
-/* ---------------------------------------------------------
-   USUARIO
-   --------------------------------------------------------- */
-
-function initializeUser() {
-
-  const input = document.getElementById("userName");
-
-  if (!input) {
-    return;
+  function checklistHtml(room) {
+    var groups = CATEGORIES.slice();
+    if (EXTRA_ITEMS[room]) groups = groups.concat([["Habitación superior", EXTRA_ITEMS[room]]]);
+    return groups.map(function (g) {
+      var title = g[0], items = g[1];
+      var rows = items.map(function (item) {
+        return '<label class="checklist-row"><input type="checkbox" class="checklist-item" data-label="' + esc(item) + '"><span>' + esc(item) + '</span></label>';
+      }).join('');
+      return '<fieldset class="checklist-group"><legend>' + esc(title) + '</legend>' + rows + '</fieldset>';
+    }).join('');
   }
 
-  const savedUser =
-    localStorage.getItem(CONFIG.storageUserKey);
-
-  if (savedUser) {
-    input.value = savedUser;
+  function roomCardHtml(room, r) {
+    var historyItems = (r.history || []).map(function (t) {
+      return '<li class="history-entry">' + esc(t) + '</li>';
+    }).join('');
+    var busy = pendingRooms[room];
+    return '<article class="room-card" data-room="' + esc(room) + '" data-status="' + esc(r.status) + '">' +
+      '<header class="room-card-header"><span class="room-number">' + esc(room) + '</span>' +
+      '<span class="status-badge">' + STATUS_LABEL[r.status] + '</span></header>' +
+      '<p class="hint">' + HINT_LABEL[r.status] + '</p>' +
+      '<p class="who-line who-clean-line"' + (r.cleanedBy ? '' : ' hidden') + '>Limpiada por: <span class="who-name">' + esc(r.cleanedBy) + '</span></p>' +
+      '<p class="who-line who-review-line"' + (r.reviewedBy ? '' : ' hidden') + '>Revisada por: <span class="who-name">' + esc(r.reviewedBy) + '</span></p>' +
+      '<p class="card-error" hidden></p>' +
+      '<div class="action-clean"><button type="button" class="btn btn-accent btn-clean"' + (busy ? ' disabled' : '') + '>' + (busy ? 'Guardando…' : 'Marcar habitación limpia') + '</button></div>' +
+      '<div class="action-checklist">' + checklistHtml(room) +
+      '<label class="notes-label">Incidencias u observaciones (opcional)<textarea class="notes-input" rows="2" placeholder="Ej.: falta secador, mancha en la moqueta…"></textarea></label>' +
+      '<button type="button" class="btn btn-accent btn-complete"' + (busy ? ' disabled' : '') + '>' + (busy ? 'Guardando…' : 'Completar revisión') + '</button></div>' +
+      '<div class="action-reset"><button type="button" class="btn btn-ghost btn-reset"' + (busy ? ' disabled' : '') + '>' + (busy ? 'Guardando…' : 'Registrar salida (marcar sucia)') + '</button></div>' +
+      '<details class="history"><summary>Historial (<span class="history-count">' + (r.history || []).length + '</span>)</summary>' +
+      '<ul class="history-list">' + historyItems + '</ul></details>' +
+      '</article>';
   }
 
-  input.addEventListener("input", () => {
-
-    const name = input.value.trim();
-
-    localStorage.setItem(
-      CONFIG.storageUserKey,
-      name
-    );
-
-  });
-
-}
-
-
-/* ---------------------------------------------------------
-   EVENTOS
-   --------------------------------------------------------- */
-
-function initializeEvents() {
-
-  const refreshBtn =
-    document.getElementById("refreshBtn");
-
-  const printBtn =
-    document.getElementById("printBtn");
-
-  const cleaningModeBtn =
-    document.getElementById("cleaningModeBtn");
-
-  const receptionModeBtn =
-    document.getElementById("receptionModeBtn");
-
-
-  if (refreshBtn) {
-
-    refreshBtn.addEventListener(
-      "click",
-      () => loadState(true)
-    );
-
+  function activityHtml(activity) {
+    return (activity || []).slice(0, 8).map(function (t) {
+      return '<li class="activity-item">' + esc(t) + '</li>';
+    }).join('');
   }
 
-
-  if (printBtn) {
-
-    printBtn.addEventListener(
-      "click",
-      () => window.print()
-    );
-
+  function statsOf(st) {
+    var c = { sucia: 0, lista: 0, revisada: 0 };
+    ROOMS.forEach(function (room) {
+      var s = st.rooms[room] && st.rooms[room].status;
+      if (c.hasOwnProperty(s)) c[s]++;
+    });
+    return c;
   }
 
-
-  if (cleaningModeBtn) {
-
-    cleaningModeBtn.addEventListener(
-      "click",
-      () => setMode("cleaning")
-    );
-
+  function updateStats(st) {
+    var s = statsOf(st);
+    document.getElementById('stat-sucia').textContent = s.sucia;
+    document.getElementById('stat-lista').textContent = s.lista;
+    document.getElementById('stat-revisada').textContent = s.revisada;
   }
 
-
-  if (receptionModeBtn) {
-
-    receptionModeBtn.addEventListener(
-      "click",
-      () => setMode("reception")
-    );
-
+  function updateActivity(st) {
+    document.getElementById('activity-list').innerHTML = activityHtml(st.activity);
   }
 
-}
-
-
-/* ---------------------------------------------------------
-   CAMBIO DE MODO
-   --------------------------------------------------------- */
-
-function setMode(mode) {
-  currentMode = mode;
-
-  const cleaningBtn =
-    document.getElementById("cleaningModeBtn");
-
-  const receptionBtn =
-    document.getElementById("receptionModeBtn");
-
-  const app =
-    document.getElementById("app");
-
-  // Cambiar estado visual del botón
-  if (cleaningBtn) {
-    cleaningBtn.classList.toggle(
-      "active",
-      mode === "cleaning"
-    );
-
-    cleaningBtn.setAttribute(
-      "aria-pressed",
-      String(mode === "cleaning")
-    );
+  function setSaveStatus(text, isError) {
+    var el = document.getElementById('save-status');
+    if (!el) return;
+    el.textContent = text;
+    el.classList.toggle('save-status-error', !!isError);
   }
 
-  if (receptionBtn) {
-    receptionBtn.classList.toggle(
-      "active",
-      mode === "reception"
-    );
-
-    receptionBtn.setAttribute(
-      "aria-pressed",
-      String(mode === "reception")
-    );
+  function fullRenderGrid(st) {
+    var grid = document.getElementById('room-grid');
+    grid.innerHTML = ROOMS.map(function (room) {
+      return roomCardHtml(room, st.rooms[room] || { status: 'sucia', cleanedBy: '', reviewedBy: '', history: [] });
+    }).join('');
   }
 
-  // Informar al CSS de qué modo estamos usando
-  if (app) {
-    const localMode =
-      mode === "cleaning"
-        ? "limpieza"
-        : "recepcion";
-
-    app.setAttribute(
-      "data-local-mode",
-      localMode
-    );
+  function partialRenderGrid(st) {
+    ROOMS.forEach(function (room) {
+      if (dirtyRooms[room]) return; // no tocar tarjetas con edición en curso en este dispositivo
+      var oldCard = document.querySelector('.room-card[data-room="' + room + '"]');
+      if (!oldCard) return;
+      var wrapper = document.createElement('div');
+      wrapper.innerHTML = roomCardHtml(room, st.rooms[room] || { status: 'sucia', cleanedBy: '', reviewedBy: '', history: [] });
+      oldCard.replaceWith(wrapper.firstElementChild);
+    });
   }
 
-  // Recordar el modo elegido
+  function applyState(newState, full) {
+    state = newState;
+    if (full) fullRenderGrid(state); else partialRenderGrid(state);
+    updateStats(state);
+    updateActivity(state);
+    setSaveStatus('Actualizado: ' + new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }));
+  }
+
+  function loadInitial() {
+    google.script.run
+      .withSuccessHandler(function (st) { applyState(st, true); })
+      .withFailureHandler(function (err) {
+        setSaveStatus('⚠️ No se pudo cargar el panel: ' + (err && err.message ? err.message : err), true);
+      })
+      .getState();
+  }
+
+  function refresh() {
+    google.script.run
+      .withSuccessHandler(function (st) { applyState(st, false); })
+      .withFailureHandler(function (err) {
+        setSaveStatus('⚠️ No se pudo actualizar: ' + (err && err.message ? err.message : err), true);
+      })
+      .getState();
+  }
+
+  var app = document.getElementById('app');
+
+  // ---- preferencias locales por dispositivo (modo y nombre) ----
   try {
-    localStorage.setItem(
-      "balconmar-modo",
-      mode === "cleaning"
-        ? "limpieza"
-        : "recepcion"
-    );
-  } catch (error) {
-    console.warn(
-      "No se ha podido guardar el modo:",
-      error
-    );
-  }
-
-  renderRooms();
-}
-
-/* ---------------------------------------------------------
-   CREACIÓN INICIAL DE HABITACIONES
-   --------------------------------------------------------- */
-
-function renderInitialRooms() {
-
-  const container =
-    document.getElementById("roomsContainer");
-
-  if (!container) {
-    return;
-  }
-
-  container.innerHTML = "";
-
-  CONFIG.rooms.forEach(room => {
-
-    roomsState[room] = {
-
-      room: room,
-
-      status: "sucia",
-
-      cleanedBy: "",
-
-      reviewedBy: "",
-
-      updatedAt: null
-
-    };
-
-  });
-
-  renderRooms();
-
-}
-
-
-/* ---------------------------------------------------------
-   RENDER HABITACIONES
-   --------------------------------------------------------- */
-
-function renderRooms() {
-
-  const container =
-    document.getElementById("roomsContainer");
-
-  const template =
-    document.getElementById("roomTemplate");
-
-  if (!container || !template) {
-    return;
-  }
-
-  container.innerHTML = "";
-
-  CONFIG.rooms.forEach(room => {
-
-    const data =
-      roomsState[room] || {
-        room: room,
-        status: "sucia",
-        cleanedBy: "",
-        reviewedBy: "",
-        updatedAt: null
-      };
-
-    const fragment =
-      template.content.cloneNode(true);
-
-    const card =
-      fragment.querySelector(".room-card");
-
-    if (!card) {
-      return;
-    }
-
-    card.dataset.room = room;
-    card.classList.add(
-      `status-${data.status}`
-    );
-
-
-    /* ---------------------------------
-       DATOS BÁSICOS
-       --------------------------------- */
-
-    const roomNumber =
-      fragment.querySelector(".room-number");
-
-    const status =
-      fragment.querySelector(".room-status");
-
-    const hint =
-      fragment.querySelector(".room-hint");
-
-    if (roomNumber) {
-      roomNumber.textContent = room;
-    }
-
-    if (status) {
-      status.textContent =
-        getStatusLabel(data.status);
-    }
-
-
-    /* ---------------------------------
-       MENSAJE SEGÚN ESTADO
-       --------------------------------- */
-
-    if (hint) {
-
-      if (data.status === "sucia") {
-
-        hint.textContent =
-          "Pendiente de limpieza.";
-
-      } else if (data.status === "lista") {
-
-        hint.textContent =
-          "Lista para revisión de Recepción.";
-
-      } else if (data.status === "revisada") {
-
-        hint.textContent =
-          "Revisada — lista para el próximo huésped.";
-
-      } else {
-
-        hint.textContent = "";
-
-      }
-    }
-
-
-    /* ---------------------------------
-       USUARIO QUE LIMPIÓ
-       --------------------------------- */
-
-    const cleanLine =
-      fragment.querySelector(
-        ".who-clean-line"
-      );
-
-    if (cleanLine) {
-
-      if (data.cleanedBy) {
-
-        cleanLine.hidden = false;
-
-        const name =
-          cleanLine.querySelector(".who-name");
-
-        if (name) {
-          name.textContent =
-            data.cleanedBy;
-        }
-
-      } else {
-
-        cleanLine.hidden = true;
-
-      }
-    }
-
-
-    /* ---------------------------------
-       USUARIO QUE REVISÓ
-       --------------------------------- */
-
-    const reviewLine =
-      fragment.querySelector(
-        ".who-review-line"
-      );
-
-    if (reviewLine) {
-
-      if (data.reviewedBy) {
-
-        reviewLine.hidden = false;
-
-        const name =
-          reviewLine.querySelector(".who-name");
-
-        if (name) {
-          name.textContent =
-            data.reviewedBy;
-        }
-
-      } else {
-
-        reviewLine.hidden = true;
-
-      }
-    }
-
-
-    /* ---------------------------------
-       ÚLTIMO USUARIO
-       --------------------------------- */
-
-    const lastUser =
-      fragment.querySelector(".last-user");
-
-    if (lastUser) {
-      lastUser.textContent =
-        getLastUser(data);
-    }
-
-
-    /* ---------------------------------
-       BOTONES
-       --------------------------------- */
-
-    const cleanBtn =
-      fragment.querySelector(
-        '[data-action="clean"]'
-      );
-
-    const reviewBtn =
-      fragment.querySelector(
-        '[data-action="review"]'
-      );
-
-    const resetBtn =
-      fragment.querySelector(
-        '[data-action="reset"]'
-      );
-
-
-    if (cleanBtn) {
-
-      cleanBtn.addEventListener(
-        "click",
-        () => markRoomClean(room)
-      );
-
-    }
-
-
-    if (reviewBtn) {
-
-      reviewBtn.addEventListener(
-        "click",
-        () => openChecklist(card, room)
-      );
-
-    }
-
-
-    if (resetBtn) {
-
-      resetBtn.addEventListener(
-        "click",
-        () => resetRoom(room)
-      );
-
-    }
-
-
-    /* ---------------------------------
-       CHECKLIST
-       --------------------------------- */
-
-    const cancelBtn =
-      fragment.querySelector(
-        '[data-action="cancel-review"]'
-      );
-
-    const confirmBtn =
-      fragment.querySelector(
-        '[data-action="confirm-review"]'
-      );
-
-
-    if (cancelBtn) {
-
-      cancelBtn.addEventListener(
-        "click",
-        () => closeChecklist(card)
-      );
-
-    }
-
-
-    if (confirmBtn) {
-
-      confirmBtn.addEventListener(
-        "click",
-        () => confirmReview(card, room)
-      );
-
-    }
-
-
-    /*
-     * En Recepción, las habitaciones listas
-     * muestran directamente el checklist.
-     */
-    if (
-      currentMode === "reception" &&
-      data.status === "lista"
-    ) {
-
-      openChecklist(card, room);
-
-    }
-
-
-    /* ---------------------------------
-       HISTORIAL
-       --------------------------------- */
-
-    const historyList =
-      fragment.querySelector(
-        ".history-list"
-      );
-
-    const historyCount =
-      fragment.querySelector(
-        ".history-count"
-      );
-
-    const roomHistory =
-      data.history || [];
-
-
-    if (historyCount) {
-
-      historyCount.textContent =
-        roomHistory.length;
-
-    }
-
-
-    if (historyList) {
-
-      historyList.innerHTML = "";
-
-      roomHistory.forEach(item => {
-
-        const li =
-          document.createElement("li");
-
-        li.textContent =
-          typeof item === "string"
-            ? item
-            : JSON.stringify(item);
-
-        historyList.appendChild(li);
-
+    var savedMode = localStorage.getItem('balconmar-modo');
+    if (savedMode === 'limpieza' || savedMode === 'recepcion') {
+      app.setAttribute('data-local-mode', savedMode);
+      document.querySelectorAll('.mode-btn').forEach(function (b) {
+        b.setAttribute('aria-pressed', String(b.getAttribute('data-mode') === savedMode));
       });
-
     }
+  } catch (e) {}
 
+  var whoInput = document.getElementById('who-input');
+  var whoRow = whoInput ? whoInput.closest('.who-row') : null;
+  var whoErrorMsg = document.getElementById('who-error-msg');
+  try {
+    var savedWho = localStorage.getItem('balconmar-quien');
+    if (savedWho && whoInput) whoInput.value = savedWho;
+  } catch (e) {}
 
-    /* ---------------------------------
-       MOSTRAR BOTONES CORRESPONDIENTES
-       --------------------------------- */
-
-    updateActionButtons(
-      fragment,
-      data.status
-    );
-
-
-    container.appendChild(fragment);
-
-  });
-
-
-  updateStatistics();
-
-}
-
-/* ---------------------------------------------------------
-   ETIQUETAS DE ESTADO
-   --------------------------------------------------------- */
-
-function getStatusLabel(status) {
-
-  switch (status) {
-
-    case "sucia":
-      return "Sucia";
-
-    case "lista":
-      return "Lista para revisar";
-
-    case "revisada":
-      return "Revisada";
-
-    default:
-      return status || "Desconocido";
-
-  }
-
-}
-
-
-/* ---------------------------------------------------------
-   ÚLTIMO USUARIO
-   --------------------------------------------------------- */
-
-function getLastUser(data) {
-
-  if (data.status === "revisada") {
-
-    return data.reviewedBy || "—";
-
-  }
-
-  if (data.status === "lista") {
-
-    return data.cleanedBy || "—";
-
-  }
-
-  return data.cleanedBy || data.reviewedBy || "—";
-
-}
-
-
-/* ---------------------------------------------------------
-   BOTONES SEGÚN ESTADO
-   --------------------------------------------------------- */
-
-function updateActionButtons(fragment, status) {
-
-  const cleanBtn =
-    fragment.querySelector(
-      '[data-action="clean"]'
-    );
-
-  const reviewBtn =
-    fragment.querySelector(
-      '[data-action="review"]'
-    );
-
-  const resetBtn =
-    fragment.querySelector(
-      '[data-action="reset"]'
-    );
-
-
-  // MODO LIMPIEZA
-  if (currentMode === "cleaning") {
-
-    if (cleanBtn) {
-      cleanBtn.hidden =
-        status !== "sucia";
+  function getWho() {
+    var name = whoInput ? whoInput.value.trim() : '';
+    if (!name) {
+      if (whoRow) whoRow.classList.add('who-error');
+      if (whoErrorMsg) whoErrorMsg.hidden = false;
+      if (whoInput) whoInput.focus();
+      return null;
     }
+    return name;
+  }
 
-    if (reviewBtn) {
-      reviewBtn.hidden = true;
+  function showCardError(card, msg) {
+    var p = card.querySelector('.card-error');
+    if (p) { p.textContent = msg; p.hidden = false; }
+  }
+  function clearCardError(card) {
+    var p = card.querySelector('.card-error');
+    if (p) { p.hidden = true; p.textContent = ''; }
+  }
+
+  function reRenderRoom(room, st) {
+    delete dirtyRooms[room];
+    delete pendingRooms[room];
+    var oldCard = document.querySelector('.room-card[data-room="' + room + '"]');
+    if (oldCard) {
+      var wrapper = document.createElement('div');
+      wrapper.innerHTML = roomCardHtml(room, st.rooms[room]);
+      oldCard.replaceWith(wrapper.firstElementChild);
     }
-
-    if (resetBtn) {
-      resetBtn.hidden = true;
-    }
-
   }
 
-
-  // MODO RECEPCIÓN
-  else if (currentMode === "reception") {
-
-    if (cleanBtn) {
-      cleanBtn.hidden = true;
-    }
-
-    if (reviewBtn) {
-      reviewBtn.hidden =
-        status !== "lista";
-    }
-
-    if (resetBtn) {
-      resetBtn.hidden =
-        status !== "revisada";
-    }
-
-  }
-
-}
-
-
-/* ---------------------------------------------------------
-   CHECKLIST
-   --------------------------------------------------------- */
-
-function buildChecklist(room) {
-
-  const groups = [];
-
-  CHECKLIST.forEach(group => {
-
-    groups.push({
-
-      category: group.category,
-
-      items: [...group.items]
-
-    });
-
-  });
-
-
-  const extraItems =
-    ROOM_EXTRA_ITEMS[room];
-
-
-  if (extraItems && extraItems.length) {
-
-    groups.push({
-
-      category: "Elementos específicos",
-
-      items: [...extraItems]
-
-    });
-
-  }
-
-
-  return groups;
-
-}
-
-
-/* ---------------------------------------------------------
-   ABRIR CHECKLIST
-   --------------------------------------------------------- */
-
-function openChecklist(card, room) {
-
-  const checklist =
-    card.querySelector(".checklist");
-
-  const itemsContainer =
-    card.querySelector(".checklist-items");
-
-
-  if (!checklist || !itemsContainer) {
-    return;
-  }
-
-
-  itemsContainer.innerHTML = "";
-
-
-  const groups =
-    buildChecklist(room);
-
-
-  groups.forEach(group => {
-
-    const category =
-      document.createElement("div");
-
-    category.className =
-      "checklist-category";
-
-
-    const title =
-      document.createElement("strong");
-
-    title.textContent =
-      group.category;
-
-
-    category.appendChild(title);
-
-    itemsContainer.appendChild(category);
-
-
-    group.items.forEach(item => {
-
-      const label =
-        document.createElement("label");
-
-      label.className =
-        "check-item";
-
-
-      const checkbox =
-        document.createElement("input");
-
-      checkbox.type = "checkbox";
-
-      checkbox.dataset.item = item;
-
-
-      const text =
-        document.createElement("span");
-
-      text.textContent = item;
-
-
-      label.appendChild(checkbox);
-
-      label.appendChild(text);
-
-      itemsContainer.appendChild(label);
-
-    });
-
-  });
-
-
-  checklist.hidden = false;
-
-  card.dataset.checklistOpen = "true";
-
-}
-
-
-/* ---------------------------------------------------------
-   CERRAR CHECKLIST
-   --------------------------------------------------------- */
-
-function closeChecklist(card) {
-
-  const checklist =
-    card.querySelector(".checklist");
-
-  if (checklist) {
-
-    checklist.hidden = true;
-
-  }
-
-  card.dataset.checklistOpen = "false";
-
-}
-
-
-/* ---------------------------------------------------------
-   OBTENER USUARIO
-   --------------------------------------------------------- */
-
-function getCurrentUser() {
-
-  const input =
-    document.getElementById("userName");
-
-  if (!input) {
-    return "";
-  }
-
-  return input.value.trim();
-
-}
-
-
-/* ---------------------------------------------------------
-   VALIDAR USUARIO
-   --------------------------------------------------------- */
-
-function requireUser() {
-
-  const user =
-    getCurrentUser();
-
-
-  if (!user) {
-
-    alert(
-      "Introduce tu nombre antes de realizar esta acción."
-    );
-
-    const input =
-      document.getElementById("userName");
-
-    if (input) {
-      input.focus();
-    }
-
-    return null;
-
-  }
-
-
-  return user;
-
-}
-
-
-/* ---------------------------------------------------------
-   MARCAR HABITACIÓN COMO LIMPIA
-   --------------------------------------------------------- */
-
-function markRoomClean(room) {
-
-  const user =
-    requireUser();
-
-  if (!user) {
-    return;
-  }
-
-
-  /*
-   * Actualización optimista.
-   * Más adelante esta operación se enviará
-   * al servidor de Google Apps Script.
-   */
-
-  if (!roomsState[room]) {
-    roomsState[room] = {};
-  }
-
-
-  roomsState[room].status = "lista";
-
-  roomsState[room].cleanedBy = user;
-
-  roomsState[room].updatedAt =
-    new Date().toISOString();
-
-
-  addLocalActivity({
-
-    room: room,
-
-    action: "Limpieza completada",
-
-    user: user
-
-  });
-
-
-  renderRooms();
-
-  updateLastUpdate();
-
-  saveStateToBackend(
-    "markClean",
-    {
-      room: room,
-      who: user
-    }
-  );
-
-}
-
-
-/* ---------------------------------------------------------
-   CONFIRMAR REVISIÓN
-   --------------------------------------------------------- */
-
-function confirmReview(card, room) {
-
-  const user =
-    requireUser();
-
-  if (!user) {
-    return;
-  }
-
-
-  const checkboxes =
-    card.querySelectorAll(
-      '.check-item input[type="checkbox"]'
-    );
-
-
-  const missingLabels = [];
-
-
-  checkboxes.forEach(checkbox => {
-
-    if (!checkbox.checked) {
-
-      missingLabels.push(
-        checkbox.dataset.item
-      );
-
-    }
-
-  });
-
-
-  const notesElement =
-    card.querySelector(".notes");
-
-
-  const notes =
-    notesElement
-      ? notesElement.value.trim()
-      : "";
-
-
-  /*
-   * Por seguridad, no permitimos confirmar
-   * una habitación sin completar el checklist.
-   */
-
-  if (missingLabels.length > 0) {
-
-    const continueAnyway =
-      confirm(
-        `Hay ${missingLabels.length} elemento(s) sin marcar.\n\n` +
-        `¿Quieres registrar la revisión igualmente?`
-      );
-
-    if (!continueAnyway) {
+  // ---- delegación de eventos: sobrevive a que las tarjetas se reconstruyan ----
+  document.addEventListener('click', function (e) {
+    var btn;
+
+    if (btn = e.target.closest('.mode-btn')) {
+      var mode = btn.getAttribute('data-mode');
+      app.setAttribute('data-local-mode', mode);
+      document.querySelectorAll('.mode-btn').forEach(function (b) {
+        b.setAttribute('aria-pressed', String(b === btn));
+      });
+      try { localStorage.setItem('balconmar-modo', mode); } catch (e2) {}
       return;
     }
 
-  }
-
-
-  if (!roomsState[room]) {
-    roomsState[room] = {};
-  }
-
-
-  roomsState[room].status = "revisada";
-
-  roomsState[room].reviewedBy = user;
-
-  roomsState[room].updatedAt =
-    new Date().toISOString();
-
-
-  addLocalActivity({
-
-    room: room,
-
-    action: "Revisión completada",
-
-    user: user,
-
-    missingLabels: missingLabels,
-
-    notes: notes
-
-  });
-
-
-  closeChecklist(card);
-
-  renderRooms();
-
-  updateLastUpdate();
-
-
-  saveStateToBackend(
-    "completeReview",
-    {
-      room: room,
-      who: user,
-      missingLabels: missingLabels,
-      notes: notes
-    }
-  );
-
-}
-
-
-/* ---------------------------------------------------------
-   MARCAR SUCIA / RESET
-   --------------------------------------------------------- */
-
-function resetRoom(room) {
-
-  const user =
-    requireUser();
-
-  if (!user) {
-    return;
-  }
-
-
-  const confirmed =
-    confirm(
-      `¿Marcar la habitación ${room} como sucia?`
-    );
-
-
-  if (!confirmed) {
-    return;
-  }
-
-
-  if (!roomsState[room]) {
-    roomsState[room] = {};
-  }
-
-
-  roomsState[room].status = "sucia";
-
-  roomsState[room].updatedAt =
-    new Date().toISOString();
-
-
-  addLocalActivity({
-
-    room: room,
-
-    action: "Habitación marcada como sucia",
-
-    user: user
-
-  });
-
-
-  renderRooms();
-
-  updateLastUpdate();
-
-
-  saveStateToBackend(
-    "resetRoom",
-    {
-      room: room,
-      who: user
-    }
-  );
-
-}
-
-
-/* ---------------------------------------------------------
-   ACTIVIDAD LOCAL
-   --------------------------------------------------------- */
-
-function addLocalActivity(activity) {
-
-  activityState.unshift({
-
-    ...activity,
-
-    timestamp:
-      new Date().toISOString()
-
-  });
-
-
-  /*
-   * Limitamos la actividad local
-   * para no acumular datos indefinidamente.
-   */
-
-  activityState =
-    activityState.slice(0, 30);
-
-
-  renderActivity();
-
-}
-
-
-/* ---------------------------------------------------------
-   RENDER ACTIVIDAD
-   --------------------------------------------------------- */
-
-function renderActivity() {
-
-  const container =
-    document.getElementById("activityContainer");
-
-
-  if (!container) {
-    return;
-  }
-
-
-  container.innerHTML = "";
-
-
-  if (!activityState.length) {
-
-    const empty =
-      document.createElement("div");
-
-    empty.className =
-      "empty-state";
-
-    empty.textContent =
-      "No hay actividad reciente.";
-
-    container.appendChild(empty);
-
-    return;
-
-  }
-
-
-  activityState.forEach(activity => {
-
-    const item =
-      document.createElement("div");
-
-    item.className =
-      "activity-item";
-
-
-    const main =
-      document.createElement("div");
-
-    main.className =
-      "activity-main";
-
-
-    const text =
-      document.createElement("div");
-
-    text.className =
-      "activity-text";
-
-
-    text.textContent =
-      `Habitación ${activity.room} · ` +
-      `${activity.action} · ` +
-      `${activity.user}`;
-
-
-    main.appendChild(text);
-
-
-    if (
-      activity.missingLabels &&
-      activity.missingLabels.length
-    ) {
-
-      const missing =
-        document.createElement("div");
-
-      missing.className =
-        "activity-text";
-
-      missing.textContent =
-        `Pendientes: ${activity.missingLabels.join(", ")}`;
-
-      main.appendChild(missing);
-
-    }
-
-
-    if (activity.notes) {
-
-      const notes =
-        document.createElement("div");
-
-      notes.className =
-        "activity-text";
-
-      notes.textContent =
-        `Observaciones: ${activity.notes}`;
-
-      main.appendChild(notes);
-
-    }
-
-
-    const time =
-      document.createElement("div");
-
-    time.className =
-      "activity-time";
-
-    time.textContent =
-      formatDate(activity.timestamp);
-
-
-    item.appendChild(main);
-
-    item.appendChild(time);
-
-    container.appendChild(item);
-
-  });
-
-}
-
-
-/* ---------------------------------------------------------
-   ESTADÍSTICAS
-   --------------------------------------------------------- */
-
-function updateStatistics() {
-
-  let dirty = 0;
-
-  let ready = 0;
-
-  let reviewed = 0;
-
-
-  Object.values(roomsState).forEach(room => {
-
-    if (room.status === "sucia") {
-      dirty++;
-    }
-
-    if (room.status === "lista") {
-      ready++;
-    }
-
-    if (room.status === "revisada") {
-      reviewed++;
-    }
-
-  });
-
-
-  const dirtyElement =
-    document.getElementById("dirtyCount");
-
-  const readyElement =
-    document.getElementById("readyCount");
-
-  const reviewedElement =
-    document.getElementById("reviewedCount");
-
-
-  if (dirtyElement) {
-    dirtyElement.textContent = dirty;
-  }
-
-  if (readyElement) {
-    readyElement.textContent = ready;
-  }
-
-  if (reviewedElement) {
-    reviewedElement.textContent = reviewed;
-  }
-
-}
-
-
-/* ---------------------------------------------------------
-   FECHA / HORA
-   --------------------------------------------------------- */
-
-function formatDate(value) {
-
-  if (!value) {
-    return "—";
-  }
-
-
-  const date =
-    new Date(value);
-
-
-  if (Number.isNaN(date.getTime())) {
-    return "—";
-  }
-
-
-  return date.toLocaleString(
-    "es-ES",
-    {
-      day: "2-digit",
-      month: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit"
-    }
-  );
-
-}
-
-
-/* ---------------------------------------------------------
-   ÚLTIMA ACTUALIZACIÓN
-   --------------------------------------------------------- */
-
-function updateLastUpdate() {
-
-  const element =
-    document.getElementById("lastUpdate");
-
-
-  if (!element) {
-    return;
-  }
-
-
-  element.textContent =
-    `Actualizado ${formatDate(new Date())}`;
-
-}
-
-
-/* ---------------------------------------------------------
-   POLLING
-   --------------------------------------------------------- */
-
-function startPolling() {
-
-  if (refreshTimer) {
-
-    clearInterval(refreshTimer);
-
-  }
-
-
-  refreshTimer =
-    setInterval(
-      () => loadState(),
-      CONFIG.pollingInterval
-    );
-
-}
-
-
-/* ---------------------------------------------------------
-   ACTUALIZACIÓN AL VOLVER A LA PESTAÑA
-   --------------------------------------------------------- */
-
-document.addEventListener(
-  "visibilitychange",
-  () => {
-
-    if (!document.hidden) {
-
-      loadState();
-
-    }
-
-  }
-);
-
-
-/* ---------------------------------------------------------
-   CARGAR ESTADO
-   --------------------------------------------------------- */
-
-function loadState(showMessage = false) {
-
-  fetch(CONFIG.apiUrl)
-    .then(response => {
-      if (!response.ok) {
-        throw new Error(
-          `Error HTTP ${response.status}`
-        );
-      }
-
-      return response.json();
-    })
-
-    .then(response => {
-
-      if (!response) {
-        return;
-      }
-
-      if (response.rooms) {
-        roomsState =
-          normalizeRooms(response.rooms);
-      }
-
-      if (response.activity) {
-        activityState =
-          response.activity;
-      }
-
-      renderRooms();
-      renderActivity();
-      updateLastUpdate();
-
-    })
-
-    .catch(error => {
-
-      console.error(
-        "Error cargando estado:",
-        error
-      );
-
-      if (showMessage) {
-        alert(
-          "No se ha podido actualizar la información."
-        );
-      }
-
-    });
-
-}
-
-/* ---------------------------------------------------------
-   NORMALIZAR HABITACIONES
-   --------------------------------------------------------- */
-
-function normalizeRooms(rooms) {
-
-  const result = {};
-
-
-  CONFIG.rooms.forEach(room => {
-
-    const original =
-      rooms[room] || rooms.find?.(
-        item => item.room === room
-      );
-
-
-    if (original) {
-
-      result[room] = {
-
-        room: room,
-
-        status:
-          original.status || "sucia",
-
-        cleanedBy:
-          original.cleanedBy || "",
-
-        reviewedBy:
-          original.reviewedBy || "",
-
-        updatedAt:
-          original.updatedAt || null
-
-      };
-
-    } else {
-
-      result[room] = {
-
-        room: room,
-
-        status: "sucia",
-
-        cleanedBy: "",
-
-        reviewedBy: "",
-
-        updatedAt: null
-
-      };
-
-    }
-
-  });
-
-
-  return result;
-
-}
-
-
-/* ---------------------------------------------------------
-   COMUNICACIÓN CON APPS SCRIPT
-   --------------------------------------------------------- */
-
-function saveStateToBackend(action, data) {
-
-  if (!CONFIG.apiUrl) {
-
-    console.error(
-      "No se ha configurado la URL de la API."
-    );
-
-    handleBackendError(
-      new Error("API URL no configurada.")
-    );
-
-    return;
-  }
-
-  let url =
-    CONFIG.apiUrl +
-    "?action=" +
-    encodeURIComponent(action);
-
-  Object.keys(data || {}).forEach(key => {
-
-    const value = data[key];
-
-    if (value === undefined || value === null) {
+    if (btn = e.target.closest('#print-btn')) { window.print(); return; }
+    if (btn = e.target.closest('#refresh-btn')) { refresh(); return; }
+
+    if (btn = e.target.closest('.btn-clean')) {
+      var who = getWho();
+      if (!who) return;
+      var card = btn.closest('.room-card');
+      var room = card.getAttribute('data-room');
+      clearCardError(card);
+      pendingRooms[room] = true;
+      btn.disabled = true; btn.textContent = 'Guardando…';
+      google.script.run
+        .withSuccessHandler(function (st) { reRenderRoom(room, st); updateStats(st); updateActivity(st); state = st; })
+        .withFailureHandler(function (err) {
+          delete pendingRooms[room];
+          btn.disabled = false; btn.textContent = 'Marcar habitación limpia';
+          showCardError(card, '⚠️ ' + (err && err.message ? err.message : err));
+        })
+        .markClean(room, who);
       return;
     }
 
-    let encodedValue;
-
-    if (Array.isArray(value)) {
-
-      encodedValue =
-        JSON.stringify(value);
-
-    } else {
-
-      encodedValue =
-        String(value);
-
+    if (btn = e.target.closest('.btn-complete')) {
+      var who2 = getWho();
+      if (!who2) return;
+      var card2 = btn.closest('.room-card');
+      var room2 = card2.getAttribute('data-room');
+      var checkboxes = card2.querySelectorAll('.checklist-item');
+      var missing = [];
+      checkboxes.forEach(function (cb) { if (!cb.checked) missing.push(cb.getAttribute('data-label')); });
+      var notesInput = card2.querySelector('.notes-input');
+      var notes = notesInput ? notesInput.value.trim() : '';
+      clearCardError(card2);
+      pendingRooms[room2] = true;
+      btn.disabled = true; btn.textContent = 'Guardando…';
+      google.script.run
+        .withSuccessHandler(function (st) { reRenderRoom(room2, st); updateStats(st); updateActivity(st); state = st; })
+        .withFailureHandler(function (err) {
+          delete pendingRooms[room2];
+          btn.disabled = false; btn.textContent = 'Completar revisión';
+          showCardError(card2, '⚠️ ' + (err && err.message ? err.message : err));
+        })
+        .completeReview(room2, who2, missing, notes);
+      return;
     }
 
-    url +=
-      "&" +
-      encodeURIComponent(key) +
-      "=" +
-      encodeURIComponent(encodedValue);
-
+    if (btn = e.target.closest('.btn-reset')) {
+      var card3 = btn.closest('.room-card');
+      var room3 = card3.getAttribute('data-room');
+      clearCardError(card3);
+      pendingRooms[room3] = true;
+      btn.disabled = true; btn.textContent = 'Guardando…';
+      google.script.run
+        .withSuccessHandler(function (st) { reRenderRoom(room3, st); updateStats(st); updateActivity(st); state = st; })
+        .withFailureHandler(function (err) {
+          delete pendingRooms[room3];
+          btn.disabled = false; btn.textContent = 'Registrar salida (marcar sucia)';
+          showCardError(card3, '⚠️ ' + (err && err.message ? err.message : err));
+        })
+        .resetRoom(room3);
+      return;
+    }
   });
 
+  document.addEventListener('input', function (e) {
+    if (e.target.id === 'who-input') {
+      if (whoRow) whoRow.classList.remove('who-error');
+      if (whoErrorMsg) whoErrorMsg.hidden = true;
+      try { localStorage.setItem('balconmar-quien', whoInput.value.trim()); } catch (e2) {}
+      return;
+    }
+    if (e.target.closest && e.target.closest('.action-checklist')) {
+      var card = e.target.closest('.room-card');
+      if (card) dirtyRooms[card.getAttribute('data-room')] = true;
+    }
+  });
 
-  fetch(url, {
-    method: "GET",
-    cache: "no-store"
-  })
+  var todayLabel = document.getElementById('today-label');
+  if (todayLabel) {
+    todayLabel.textContent = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+  }
 
-    .then(response => {
-
-      if (!response.ok) {
-
-        throw new Error(
-          `Error HTTP ${response.status}`
-        );
-
-      }
-
-      return response.json();
-
-    })
-
-    .then(response => {
-
-      if (!response || response.ok === false) {
-
-        throw new Error(
-          response?.error ||
-          "El servidor no ha podido guardar el cambio."
-        );
-
-      }
-
-      console.log(
-        "Cambio guardado correctamente:",
-        action,
-        response
-      );
-
-      /*
-       * Volvemos a cargar el estado real del servidor.
-       * Así confirmamos que Google Sheets ha recibido
-       * correctamente el cambio.
-       */
-
-      loadState();
-
-    })
-
-    .catch(error => {
-
-      handleBackendError(error);
-
+  var reopenAfterPrint = [];
+  window.addEventListener('beforeprint', function () {
+    var printDate = document.getElementById('print-date');
+    if (printDate) {
+      printDate.textContent = new Date().toLocaleString('es-ES', {
+        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
+      });
+    }
+    reopenAfterPrint = [];
+    document.querySelectorAll('details').forEach(function (d) {
+      if (!d.open) { reopenAfterPrint.push(d); d.open = true; }
     });
+  });
+  window.addEventListener('afterprint', function () {
+    reopenAfterPrint.forEach(function (d) { d.open = false; });
+    reopenAfterPrint = [];
+  });
 
+  loadInitial();
+  setInterval(refresh, POLL_MS);
+  window.addEventListener('focus', refresh);
+
+} catch (fatalErr) {
+  try {
+    var errEl = document.getElementById('save-status');
+    if (!errEl) { errEl = document.createElement('p'); errEl.id = 'save-status'; document.body.appendChild(errEl); }
+    errEl.textContent = '⚠️ Error crítico al iniciar la app: ' + (fatalErr && fatalErr.message ? fatalErr.message : String(fatalErr));
+    errEl.classList.add('save-status-error');
+    errEl.style.fontSize = '0.9rem';
+  } catch (e2) {}
 }
-
-
-/* ---------------------------------------------------------
-   ERRORES BACKEND
-   --------------------------------------------------------- */
-
-function handleBackendError(error) {
-
-  console.error(
-    "Error de servidor:",
-    error
-  );
-
-
-  alert(
-    "Se ha producido un error al guardar los cambios."
-  );
-
-
-  /*
-   * Si el servidor no acepta el cambio,
-   * recuperamos el estado real.
-   */
-
-  loadState();
-
-}
+})();
