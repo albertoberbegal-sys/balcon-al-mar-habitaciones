@@ -1,13 +1,11 @@
-```js
 /**
  * api.js — Capa de comunicación frontend ⇄ backend (Google Apps Script).
  * =====================================================================
- * ESTADO: PREPARADO, TODAVÍA SIN INTEGRARSE.
+ * ESTADO: INTEGRADO (paso 8 de la migración).
  *
- * Este fichero NO está incluido todavía en index.html y NO se ejecuta.
- * Su integración (sustituir las 4 llamadas `google.script.run` de
- * js/app.js por estas funciones) se hará en el paso 8 del plan de
- * migración, cuando la API ya haya sido probada por separado (paso 7).
+ * Este fichero se carga en index.html ANTES de js/app.js y sustituye
+ * todas las llamadas `google.script.run` de la app (ya no se usan).
+ * Comunicación desde GitHub Pages hacia el Web App de Apps Script.
  *
  * Diseño de la API (HTTP/JSON):
  *
@@ -30,7 +28,9 @@
  * devuelve hoy el servidor de Apps Script.
  */
 
-/* URL de la aplicación web de Apps Script. */
+/* URL de la aplicación web de Apps Script YA DESPLEGADA.
+   Si algún día se redespliega con otra URL, hay que pegarla aquí y
+   volver a subir js/api.js a GitHub Pages. */
 var API_BASE = 'https://script.google.com/macros/s/AKfycbw3wVF12qi5xnOIXdPWQlJIuchQjjiUE2ra-R_UbRQ0FOmXic4gzRtidbeSeGsnIG8/exec';
 
 /* Tiempo máximo de espera antes de dar por fallida una llamada (ms). */
@@ -54,14 +54,20 @@ function apiRequest_(payload) {
 
   var options = {
     method: payload.action === 'getState' ? 'GET' : 'POST',
-    headers: { 'Content-Type': 'application/json; charset=utf-8' },
     redirect: 'follow'
   };
 
   var url = API_BASE;
   if (payload.action === 'getState') {
+    // GET con ?action=getState y SIN cabeceras adicionales: así el
+    // navegador lo trata como petición "simple" y no lanza preflight.
     url += (API_BASE.indexOf('?') === -1 ? '?' : '&') + 'action=getState';
   } else {
+    // 'text/plain' en lugar de 'application/json' para NO disparar el
+    // preflight OPTIONS (Apps Script no puede devolver cabeceras CORS).
+    // El cuerpo viaja igual: JSON.stringify(payload); el servidor lo lee
+    // con e.postData.contents y hace JSON.parse(...).
+    options.headers = { 'Content-Type': 'text/plain;charset=utf-8' };
     options.body = JSON.stringify(payload);
   }
 
@@ -113,8 +119,8 @@ function completeReview(room, who, missingLabels, notes) {
 }
 
 /** Registro de salida: la habitación vuelve a "sucia".
+ *  El backend exige y registra "who" (quién marca la salida).
  *  Sustituye a: google.script.run.resetRoom(room) */
-function resetRoom(room) {
-  return apiRequest_({ action: 'resetRoom', room: room });
+function resetRoom(room, who) {
+  return apiRequest_({ action: 'resetRoom', room: room, who: who });
 }
-```
