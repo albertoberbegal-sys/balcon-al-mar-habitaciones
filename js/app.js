@@ -133,7 +133,7 @@ try {
   }
 
   function refresh() {
-    getState()
+    return getState()
       .then(function (st) { applyState(st, false); })
       .catch(function (err) {
         setSaveStatus('⚠️ No se pudo actualizar: ' + (err && err.message ? err.message : err), true);
@@ -207,7 +207,13 @@ try {
     }
 
     if (btn = e.target.closest('#print-btn')) { window.print(); return; }
-    if (btn = e.target.closest('#refresh-btn')) { refresh(); return; }
+    if (btn = e.target.closest('#refresh-btn')) {
+      var b = btn, txt = b.textContent;
+      b.disabled = true; b.textContent = 'Actualizando…';
+      refresh().then(function () { b.disabled = false; b.textContent = txt; })
+               .catch(function () { b.disabled = false; b.textContent = txt; });
+      return;
+    }
 
     if (btn = e.target.closest('.btn-clean')) {
       var who = getWho();
