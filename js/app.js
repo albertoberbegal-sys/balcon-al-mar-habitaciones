@@ -125,21 +125,19 @@ try {
   }
 
   function loadInitial() {
-    google.script.run
-      .withSuccessHandler(function (st) { applyState(st, true); })
-      .withFailureHandler(function (err) {
+    getState()
+      .then(function (st) { applyState(st, true); })
+      .catch(function (err) {
         setSaveStatus('⚠️ No se pudo cargar el panel: ' + (err && err.message ? err.message : err), true);
-      })
-      .getState();
+      });
   }
 
   function refresh() {
-    google.script.run
-      .withSuccessHandler(function (st) { applyState(st, false); })
-      .withFailureHandler(function (err) {
+    getState()
+      .then(function (st) { applyState(st, false); })
+      .catch(function (err) {
         setSaveStatus('⚠️ No se pudo actualizar: ' + (err && err.message ? err.message : err), true);
-      })
-      .getState();
+      });
   }
 
   var app = document.getElementById('app');
@@ -219,14 +217,13 @@ try {
       clearCardError(card);
       pendingRooms[room] = true;
       btn.disabled = true; btn.textContent = 'Guardando…';
-      google.script.run
-        .withSuccessHandler(function (st) { reRenderRoom(room, st); updateStats(st); updateActivity(st); state = st; })
-        .withFailureHandler(function (err) {
+      markClean(room, who)
+        .then(function (st) { reRenderRoom(room, st); updateStats(st); updateActivity(st); state = st; })
+        .catch(function (err) {
           delete pendingRooms[room];
           btn.disabled = false; btn.textContent = 'Marcar habitación limpia';
           showCardError(card, '⚠️ ' + (err && err.message ? err.message : err));
-        })
-        .markClean(room, who);
+        });
       return;
     }
 
@@ -243,31 +240,31 @@ try {
       clearCardError(card2);
       pendingRooms[room2] = true;
       btn.disabled = true; btn.textContent = 'Guardando…';
-      google.script.run
-        .withSuccessHandler(function (st) { reRenderRoom(room2, st); updateStats(st); updateActivity(st); state = st; })
-        .withFailureHandler(function (err) {
+      completeReview(room2, who2, missing, notes)
+        .then(function (st) { reRenderRoom(room2, st); updateStats(st); updateActivity(st); state = st; })
+        .catch(function (err) {
           delete pendingRooms[room2];
           btn.disabled = false; btn.textContent = 'Completar revisión';
           showCardError(card2, '⚠️ ' + (err && err.message ? err.message : err));
-        })
-        .completeReview(room2, who2, missing, notes);
+        });
       return;
     }
 
     if (btn = e.target.closest('.btn-reset')) {
+      var who3 = getWho();
+      if (!who3) return;
       var card3 = btn.closest('.room-card');
       var room3 = card3.getAttribute('data-room');
       clearCardError(card3);
       pendingRooms[room3] = true;
       btn.disabled = true; btn.textContent = 'Guardando…';
-      google.script.run
-        .withSuccessHandler(function (st) { reRenderRoom(room3, st); updateStats(st); updateActivity(st); state = st; })
-        .withFailureHandler(function (err) {
+      resetRoom(room3, who3)
+        .then(function (st) { reRenderRoom(room3, st); updateStats(st); updateActivity(st); state = st; })
+        .catch(function (err) {
           delete pendingRooms[room3];
           btn.disabled = false; btn.textContent = 'Registrar salida (marcar sucia)';
           showCardError(card3, '⚠️ ' + (err && err.message ? err.message : err));
-        })
-        .resetRoom(room3);
+        });
       return;
     }
   });
