@@ -224,7 +224,7 @@ try {
       pendingRooms[room] = true;
       btn.disabled = true; btn.textContent = 'Guardando…';
       markClean(room, who)
-        .then(function () { delete pendingRooms[room]; return refresh(); })
+        .then(function () { delete pendingRooms[room]; delete dirtyRooms[room]; return refresh(); })
         .catch(function (err) {
           delete pendingRooms[room];
           btn.disabled = false; btn.textContent = 'Marcar habitación limpia';
@@ -247,7 +247,7 @@ try {
       pendingRooms[room2] = true;
       btn.disabled = true; btn.textContent = 'Guardando…';
       completeReview(room2, who2, missing, notes)
-        .then(function () { delete pendingRooms[room2]; return refresh(); })
+        .then(function () { delete pendingRooms[room2]; delete dirtyRooms[room2]; return refresh(); })
         .catch(function (err) {
           delete pendingRooms[room2];
           btn.disabled = false; btn.textContent = 'Completar revisión';
@@ -265,7 +265,7 @@ try {
       pendingRooms[room3] = true;
       btn.disabled = true; btn.textContent = 'Guardando…';
       resetRoom(room3, who3)
-        .then(function () { delete pendingRooms[room3]; return refresh(); })
+        .then(function () { delete pendingRooms[room3]; delete dirtyRooms[room3]; return refresh(); })
         .catch(function (err) {
           delete pendingRooms[room3];
           btn.disabled = false; btn.textContent = 'Registrar salida (marcar sucia)';
